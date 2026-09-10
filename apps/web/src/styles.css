@@ -167,7 +167,10 @@ button { font-family: var(--font-head); }
 .naipe .center .art { font-size: 26px; line-height: 1; }
 .naipe .center .nick { font-size: 8px; font-weight: 800; letter-spacing: 0.04em; }
 .naipe.playable { cursor: pointer; }
-.naipe.playable:hover { transform: translateY(-12px) scale(1.04); }
+.naipe.playable:hover {
+  transform: translateY(-12px) scale(1.04);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.65), 0 0 14px rgba(245, 158, 11, 0.4);
+}
 .naipe.small { width: 56px; height: 80px; padding: 4px; }
 .naipe.small .center .art { font-size: 18px; }
 .naipe.small .corner .rank { font-size: 13px; }
@@ -252,3 +255,93 @@ button { font-family: var(--font-head); }
   .seat-tag.left, .seat-tag.right { max-width: 40%; font-size: 0.75em; }
   .hero h1 { font-size: 1.5em; }
 }
+
+/* ===== Animaciones de mesa (reparto, juego, cantos) ===== */
+@keyframes deal-in {
+  from { opacity: 0; transform: translateY(70px) scale(0.85) rotate(var(--r, 0deg)); }
+  to { opacity: 1; transform: translateY(0) scale(1) rotate(var(--r, 0deg)); }
+}
+@keyframes play-in {
+  from { opacity: 0; transform: translateY(-18px) scale(1.12); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes win-pop {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.75); }
+  100% { box-shadow: 0 0 0 16px rgba(245, 158, 11, 0); }
+}
+@keyframes canto-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 16px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translate(-50%, 10px) scale(0.97); }
+}
+@keyframes turn-glow {
+  0%, 100% { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(245, 158, 11, 0.55); }
+  50% { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 16px 3px rgba(245, 158, 11, 0.85); }
+}
+
+/* Abanico de mano: solape + rotación, entrada escalonada por carta */
+.fan { align-items: flex-end; gap: 0; }
+.fan-card {
+  display: inline-block; margin: 0 -7px;
+  transform: rotate(var(--r, 0deg)); transform-origin: bottom center;
+  animation: deal-in 0.45s backwards; animation-delay: calc(var(--fan-i, 0) * 110ms);
+}
+.fan .fan-card:nth-child(1) { --r: -8deg; }
+.fan .fan-card:nth-child(2) { --r: 0deg; }
+.fan .fan-card:nth-child(3) { --r: 8deg; }
+.fan-card:hover { z-index: 5; position: relative; }
+
+/* Cartas jugadas: entrada + pulso dorado a la ganadora de la baza */
+.trick-card { display: inline-block; animation: play-in 0.3s ease; border-radius: 10px; }
+.trick-card.won { animation: win-pop 0.9s ease; }
+.trick-card.won .naipe {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
+/* Fila de respuesta a canto: aparece con pop */
+.canto-pop { animation: canto-pop 0.25s ease; }
+
+/* Pod del jugador en turno: anillo pulsante */
+.seat-tag.turn { animation: turn-glow 1.6s infinite; }
+
+/* Fieltro con textura de paño + ribete latón */
+.felt {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 2px rgba(217, 119, 7, 0.22),
+    inset 0 0 90px rgba(0, 0, 0, 0.9);
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 30%, rgba(20, 108, 67, 0.55) 0%, rgba(11, 51, 33, 0) 70%),
+    linear-gradient(180deg, var(--felt-1), var(--felt-2) 55%, var(--felt-3));
+}
+.felt::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Toast de cantos: no modal, se auto-cierra, con X */
+.canto-toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 0); z-index: 60;
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 480px);
+  background: rgba(16, 14, 12, 0.95); border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 14px; padding: 10px 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7), 0 0 18px rgba(245, 158, 11, 0.15);
+  animation: toast-in 0.25s ease; backdrop-filter: blur(8px);
+  font-size: 0.9em;
+}
+.canto-toast.hide { animation: toast-out 0.25s ease forwards; }
+.canto-toast.envido, .canto-toast.quiero { border-color: rgba(149, 212, 172, 0.55); }
+.canto-toast.noquiero { border-color: rgba(255, 180, 171, 0.6); }
+.canto-toast .emoji { font-size: 1.5em; line-height: 1; }
+.canto-toast .kind { font-family: var(--font-head); font-weight: 800; letter-spacing: 0.04em; }
+.canto-toast .detail { color: var(--muted); font-size: 0.85em; }
+.canto-toast .x {
+  margin-left: 6px; border: none; background: transparent; color: var(--muted);
+  font-size: 1em; cursor: pointer; padding: 4px 6px; border-radius: 8px; align-self: flex-start;
+}
+.canto-toast .x:hover { background: var(--surface-highest); color: var(--text); }

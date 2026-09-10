@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { handEnvidoPoints } from '@matoyvoy/game-core';
 import { getSocket, clearCredentials } from '../socket';
 import type { RoomStatePayload, Seat } from '../gameTypes';
@@ -16,6 +16,59 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+// ---- Toast de cantos (no modal): truco/envido + quiero/no quiero ----
+const CANTO_LABEL: Record<string, string> = {
+  truco: '¡TRUCO!',
+  retruco: '¡RETRUCO!',
+  'vale cuatro': '¡VALE CUATRO!',
+  envido: 'ENVIDO',
+  real_envido: 'REAL ENVIDO',
+  falta_envido: 'FALTA ENVIDO',
+};
+
+type CantoVerb = 'canta' | 'quiere' | 'no quiere';
+
+interface ParsedCanto {
+  seat: number;
+  verb: CantoVerb;
+  level: string;
+  detail: string;
+}
+
+function parseCantoLine(line: string): ParsedCanto | null {
+  const m = line.match(/^(\d+)\s+(no quiere|quiere|canta)\s+([\wñ ]+)/i);
+  if (!m) return null;
+  const level = m[3].trim().toLowerCase();
+  if (!(level in CANTO_LABEL)) return null;
+  const detail = (line.split(':')[1] ?? '').trim();
+  return { seat: Number(m[1]), verb: m[2].toLowerCase() as CantoVerb, level, detail };
+}
+
+const TOAST_MS = 4000;
+
+function CantoToast({ canto, onClose }: { canto: ParsedCanto & { who: string }; onClose: () => void }): React.ReactElement {
+  const label = CANTO_LABEL[canto.level];
+  const isTruco = canto.level === 'truco' || canto.level === 'retruco' || canto.level === 'vale cuatro';
+  const tone = canto.verb === 'no quiere' ? 'noquiero' : canto.verb === 'quiere' ? 'quiero' : isTruco ? 'truco' : 'envido';
+  const emoji = canto.verb === 'quiere' ? '✅' : canto.verb === 'no quiere' ? '❌' : '📣';
+  const title =
+    canto.verb === 'canta'
+      ? `${canto.who} cantó ${label}`
+      : canto.verb === 'quiere'
+        ? `${canto.who} quiso ${isTruco ? 'el truco' : 'el envido'}`
+        : `${canto.who} no quiso ${isTruco ? 'el truco' : 'el envido'}`;
+  return (
+    <div className={`canto-toast ${tone}`} role="status">
+      <span className="emoji">{emoji}</span>
+      <span>
+        <div className="kind">{title}</div>
+        {canto.detail && <div className="detail">{canto.detail}</div>}
+      </span>
+      <button className="x" onClick={onClose} aria-label="Cerrar aviso">✕</button>
+    </div>
+  );
+}
+
 export function TableScreen({ state }: { state: RoomStatePayload }): React.ReactElement {
   const { room, match, hand, mySeat, myRole, isHost, log } = state;
   const socket = getSocket();
@@ -23,6 +76,27 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
   const isBotRoom = Boolean(room.botDifficulty);
   const [tapada, setTapada] = useState(false);
   const myTurn = Boolean(hand && hand.turnSeat === mySeat && !hand.finished);
+
+  // Toast no-modal con el último canto (sirve en 1v1 humano, vs máquina y espectador).
+  const [toast, setToast] = useState<(ParsedCanto & { key: string }) | null>(null);
+  const toastTimer = useRef<number | null>(null);
+  const logLen = hand?.log.length ?? 0;
+  const handId = hand?.id ?? -1;
+  useEffect(() => {
+    if (handId < 0 || logLen === 0) {
+      setToast(null);
+      return;
+    }
+    const lines = hand?.log ?? [];
+    const parsed = parseCantoLine(lines[logLen - 1]);
+    if (!parsed) return; // una jugada no pisa el aviso vigente
+    setToast({ ...parsed, key: `${handId}:${logLen - 1}` });
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS);
+    return () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    };
+  }, [handId, logLen]);
 
   const trucoPendingForMe = Boolean(hand?.truco.pending && hand.truco.pendingTo === mySeat);
   const envidoPendingForMe = Boolean(hand?.envido.pending && hand.envido.pendingTo === mySeat);
@@ -67,10 +141,11 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
     pos: 'top' | 'left' | 'right',
     roleBadge?: string,
     isBot?: boolean,
+    isTurn?: boolean,
   ): React.ReactElement => {
     const count = hand?.handCounts[seat] ?? 0;
     return (
-      <div className={`seat-tag ${pos}`}>
+      <div className={`seat-tag ${pos}${isTurn ? ' turn' : ''}`}>
         <span className="avatar">{isBot ? '🤖' : initials(name)}</span>
         <span>
           <strong>{name}{isBot ? ' 🤖' : ''}</strong>
@@ -163,9 +238,9 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
               </div>
 
               <div className="felt">
-                {top && seatTag(top.seat, top.name, top.seat === hand.manoSeat ? 'Mano' : `Rival · ${hand.handCounts[top.seat] ?? 0} cartas`, 'top', top.seat === hand.manoSeat ? 'MANO' : undefined, top.isBot)}
-                {left && seatTag(left.seat, left.name, 'Rival', 'left', undefined, left.isBot)}
-                {right && seatTag(right.seat, right.name, 'Rival', 'right', undefined, right.isBot)}
+                {top && seatTag(top.seat, top.name, top.seat === hand.manoSeat ? 'Mano' : `Rival · ${hand.handCounts[top.seat] ?? 0} cartas`, 'top', top.seat === hand.manoSeat ? 'MANO' : undefined, top.isBot, hand.turnSeat === top.seat)}
+                {left && seatTag(left.seat, left.name, 'Rival', 'left', undefined, left.isBot, hand.turnSeat === left.seat)}
+                {right && seatTag(right.seat, right.name, 'Rival', 'right', undefined, right.isBot, hand.turnSeat === right.seat)}
 
                 <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 460 }}>
                   {hand.tricks.map((t) => (
@@ -177,12 +252,15 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
                             : `ganó ${playerName(room, t.winnerSeat as number)}`}
                       </div>
                       <div className="row" style={{ justifyContent: 'center' }}>
-                        {t.plays.map((p, i) => (
-                          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            {p.faceDown ? <CardBack /> : <CardView card={p.card} small />}
-                            <small className="muted">{playerName(room, p.seat)}{p.faceDown ? ' (tapada)' : ''}</small>
-                          </div>
-                        ))}
+                        {t.plays.map((p, i) => {
+                          const won = t.winnerSeat !== null && t.winnerSeat !== undefined && t.winnerSeat !== 'tie' && t.winnerSeat === p.seat;
+                          return (
+                            <span key={i} className={`trick-card${won ? ' won' : ''}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              {p.faceDown ? <CardBack /> : <CardView card={p.card} small />}
+                              <small className="muted">{playerName(room, p.seat)}{p.faceDown ? ' (tapada)' : ''}</small>
+                            </span>
+                          );
+                        })}
                         {t.plays.length === 0 && <CardBack />}
                       </div>
                     </div>
@@ -199,9 +277,11 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
                       Jugar tapada
                     </label>
                   </div>
-                  <div className="row">
-                    {(hand.myCards ?? []).map((c) => (
-                      <CardView key={c.id} card={c} playable={myTurn} onPlay={() => play(c.id)} />
+                  <div className="row fan" key={hand.id}>
+                    {(hand.myCards ?? []).map((c, i) => (
+                      <span key={c.id} className="fan-card" style={{ '--fan-i': i } as React.CSSProperties}>
+                        <CardView card={c} playable={myTurn} onPlay={() => play(c.id)} />
+                      </span>
                     ))}
                     {(hand.myCards ?? []).length === 0 && <span className="muted">Sin cartas en mano.</span>}
                   </div>
@@ -210,14 +290,14 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
 
               <div className="canto-bar" style={{ marginTop: 10 }}>
                 {trucoPendingForMe && (
-                  <div className="row">
+                  <div className="row canto-pop">
                     <strong>Te cantaron {hand.truco.level}:</strong>
                     <button className="btn btn-green btn-sm" onClick={() => socket.emit('respondTruco', { quiero: true })}>Quiero</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => socket.emit('respondTruco', { quiero: false })}>No quiero</button>
                   </div>
                 )}
                 {envidoPendingForMe && (
-                  <div className="row">
+                  <div className="row canto-pop">
                     <strong>Te cantaron {hand.envido.level}:</strong>
                     <button className="btn btn-green btn-sm" onClick={() => socket.emit('respondEnvido', { quiero: true })}>Quiero</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => socket.emit('respondEnvido', { quiero: false })}>No quiero</button>
@@ -252,6 +332,10 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
           )}
         </div>
       </div>
+
+      {toast && (
+        <CantoToast canto={{ ...toast, who: playerName(room, toast.seat) }} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }
