@@ -34,6 +34,8 @@ export type EnvidoLevel = 'none' | 'envido' | 'real_envido' | 'falta_envido';
 export interface TrickPlay {
   seat: Seat;
   card: Card;
+  /** Carta jugada boca abajo: pierde contra todo, solo empata con otra tapada. */
+  faceDown?: boolean;
 }
 
 export interface TrickResult {

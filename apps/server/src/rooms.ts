@@ -232,7 +232,7 @@ export function leaveRoom(code: string, kind: 'player' | 'spectator', id: string
   return room;
 }
 
-export function startMatch(room: ServerRoom, targetScore?: number): void {
+export function startMatch(room: ServerRoom, targetScore?: number, opts: { deal?: boolean } = {}): void {
   if (room.players.length < 2) throw new Error('Se necesitan 2 jugadores para iniciar (MVP 1v1)');
   const connected = room.players.filter((p) => p.connected);
   if (connected.length < 2) throw new Error('Ambos jugadores deben estar conectados');
@@ -246,7 +246,8 @@ export function startMatch(room: ServerRoom, targetScore?: number): void {
     connected: p.connected,
   }));
   const match = new Match({ targetScore: t, players });
-  match.startNextHand();
+  // En salas vs bot no se reparte al iniciar: el humano apreta Repartir cada mano.
+  if (opts.deal ?? true) match.startNextHand();
   room.match = match;
   room.status = 'playing';
 }

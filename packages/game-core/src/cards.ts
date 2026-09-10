@@ -7,6 +7,14 @@ export function makeCard(rank: Rank, suit: Suit): Card {
   return { id: `${rank}-${suit}`, rank, suit };
 }
 
+// Clave interna de una carta en el motor: solo palo y valor, sin tema.
+export function cardKey(rank: Rank, suit: Suit): string;
+export function cardKey(card: Card): string;
+export function cardKey(rankOrCard: Rank | Card, suit?: Suit): string {
+  if (typeof rankOrCard === 'object') return `${rankOrCard.rank}-${rankOrCard.suit}`;
+  return `${rankOrCard}-${suit}`;
+}
+
 export function createDeck(): Card[] {
   const deck: Card[] = [];
   for (const suit of SUITS) {

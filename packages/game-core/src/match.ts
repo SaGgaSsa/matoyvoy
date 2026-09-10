@@ -35,10 +35,10 @@ export class Match {
     // Aplicar puntos pendientes de la mano anterior ya deberia estar hecho via applyClosedHand.
     const n = this.state.handNumber + 1;
     const seats = this.seats;
-    // Alternar mano: mano = seats[(n-1) % len]
-    const manoSeat = seats[(n - 1) % seats.length] as Seat;
-    // Dealer = anterior (para 1v1, el otro)
-    const dealerSeat = seats[n % seats.length] as Seat;
+    // Mano sorteada (pagina oficial: sorteo; el rng inyectable permite tests).
+    const manoSeat = seats[Math.floor(rng() * seats.length)] as Seat;
+    // Dealer = otro asiento (1v1) o anterior en orden (2v2 futuro).
+    const dealerSeat = seats.find((s) => s !== manoSeat) ?? manoSeat;
     const hand = createHand({
       id: n,
       manoSeat,

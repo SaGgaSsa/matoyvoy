@@ -25,7 +25,7 @@ export interface PublicMatchView {
   finished: boolean;
   winnerTeam: Team | null;
 }
-export interface TrickPlay { seat: Seat; card: Card }
+export interface TrickPlay { seat: Seat; card: Card; faceDown?: boolean }
 export interface TrickResult {
   number: number;
   leadSeat: Seat;

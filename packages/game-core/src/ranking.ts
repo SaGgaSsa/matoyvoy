@@ -1,24 +1,50 @@
-import type { Card, Seat, TrickResult } from './types.js';
+import type { Card, Seat, Suit, TrickResult, TrickPlay } from './types.js';
+import { cardKey } from './cards.js';
 
 // Jerarquia de Truco Argentino (mayor numero = mas fuerte).
 // 1-espada > 1-basto > 7-espada > 7-oro > 3s > 2s > 1-oro/1-copa > 12s > 11s > 10s > 7-copa/7-basto > 6s > 5s > 4s
+//
+// Representacion interna: la jerarquia vive en el MOTOR como tabla sobre
+// (rank, suit). No depende de nombres ni del catalogo tematico.
+const TRUCO_POWER: Record<string, number> = {
+  [cardKey(1, 'espada')]: 14,
+  [cardKey(1, 'basto')]: 13,
+  [cardKey(7, 'espada')]: 12,
+  [cardKey(7, 'oro')]: 11,
+};
+
+for (const suit of ['espada', 'basto', 'oro', 'copa'] as Suit[]) {
+  TRUCO_POWER[cardKey(3, suit)] = 10;
+  TRUCO_POWER[cardKey(2, suit)] = 9;
+  TRUCO_POWER[cardKey(12, suit)] = 7;
+  TRUCO_POWER[cardKey(11, suit)] = 6;
+  TRUCO_POWER[cardKey(10, suit)] = 5;
+  TRUCO_POWER[cardKey(6, suit)] = 3;
+  TRUCO_POWER[cardKey(5, suit)] = 2;
+  TRUCO_POWER[cardKey(4, suit)] = 1;
+}
+// Anchos falsos y sietes falsos (los que no son bravas).
+TRUCO_POWER[cardKey(1, 'oro')] = 8;
+TRUCO_POWER[cardKey(1, 'copa')] = 8;
+TRUCO_POWER[cardKey(7, 'copa')] = 4;
+TRUCO_POWER[cardKey(7, 'basto')] = 4;
+
 export function trucoPower(card: Card): number {
-  const { rank, suit } = card;
-  if (rank === 1 && suit === 'espada') return 14;
-  if (rank === 1 && suit === 'basto') return 13;
-  if (rank === 7 && suit === 'espada') return 12;
-  if (rank === 7 && suit === 'oro') return 11;
-  if (rank === 3) return 10;
-  if (rank === 2) return 9;
-  if (rank === 1) return 8; // oro y copa (ancho falso)
-  if (rank === 12) return 7;
-  if (rank === 11) return 6;
-  if (rank === 10) return 5;
-  if (rank === 7) return 4; // copa y basto
-  if (rank === 6) return 3;
-  if (rank === 5) return 2;
-  if (rank === 4) return 1;
-  throw new Error(`Carta invalida para truco: ${rank} de ${suit}`);
+  const power = TRUCO_POWER[cardKey(card)];
+  if (power === undefined) throw new Error(`Carta invalida para truco: ${card.rank} de ${card.suit}`);
+  return power;
+}
+
+// Expuesta para depurar/testear la jerarquia completa sin conocer el codigo.
+export function trucoPowerTable(): Record<string, number> {
+  return { ...TRUCO_POWER };
+}
+
+// Poder efectivo en una baza: la tapada vale -1 (pierde contra todo,
+// empata solo con otra tapada). Fuera de la baza, la carta conserva su poder.
+export function effectivePower(play: TrickPlay): number {
+  if (play.faceDown) return -1;
+  return trucoPower(play.card);
 }
 
 // 1 = a gana, -1 = b gana, 0 = parda
@@ -30,12 +56,14 @@ export function compareCards(a: Card, b: Card): number {
   return 0;
 }
 
-export function trickWinner(plays: { seat: Seat; card: Card }[]): Seat | 'tie' {
+export function trickWinner(plays: { seat: Seat; card: Card; faceDown?: boolean }[]): Seat | 'tie' {
   if (plays.length === 0) throw new Error('Sin jugadas');
   let best = plays[0]!;
   let tie = false;
   for (let i = 1; i < plays.length; i++) {
-    const cmp = compareCards(plays[i]!.card, best.card);
+    const pa = effectivePower(plays[i]!);
+    const pb = effectivePower(best);
+    const cmp = pa > pb ? 1 : pa < pb ? -1 : 0;
     if (cmp > 0) {
       best = plays[i]!;
       tie = false;
@@ -46,22 +74,22 @@ export function trickWinner(plays: { seat: Seat; card: Card }[]): Seat | 'tie' {
   return tie && plays.length > 1 && isTopTie(plays) ? 'tie' : tie ? checkTie(plays) : best.seat;
 }
 
-function isTopTie(plays: { seat: Seat; card: Card }[]): boolean {
+function isTopTie(plays: { seat: Seat; card: Card; faceDown?: boolean }[]): boolean {
   // Si las mejores cartas empatan en poder, es parda aunque haya una peor.
-  let max = -1;
-  for (const p of plays) max = Math.max(max, trucoPower(p.card));
-  const count = plays.filter((p) => trucoPower(p.card) === max).length;
+  let max = -2;
+  for (const p of plays) max = Math.max(max, effectivePower(p));
+  const count = plays.filter((p) => effectivePower(p) === max).length;
   return count > 1;
 }
 
-function checkTie(plays: { seat: Seat; card: Card }[]): Seat | 'tie' {
+function checkTie(plays: { seat: Seat; card: Card; faceDown?: boolean }[]): Seat | 'tie' {
   return isTopTie(plays) ? 'tie' : winnerAmongBest(plays);
 }
 
-function winnerAmongBest(plays: { seat: Seat; card: Card }[]): Seat {
-  let max = -1;
-  for (const p of plays) max = Math.max(max, trucoPower(p.card));
-  const best = plays.find((p) => trucoPower(p.card) === max)!;
+function winnerAmongBest(plays: { seat: Seat; card: Card; faceDown?: boolean }[]): Seat {
+  let max = -2;
+  for (const p of plays) max = Math.max(max, effectivePower(p));
+  const best = plays.find((p) => effectivePower(p) === max)!;
   return best.seat;
 }
 

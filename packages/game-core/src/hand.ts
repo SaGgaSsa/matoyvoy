@@ -126,7 +126,7 @@ export function trucoWantedPoints(level: TrucoLevel): number {
 
 // ---------- Jugadas ----------
 
-export function playCard(hand: HandState, seat: Seat, cardId: string): HandState {
+export function playCard(hand: HandState, seat: Seat, cardId: string, opts: { faceDown?: boolean } = {}): HandState {
   if (hand.finished) throw new Error('La mano ya termino');
   if (hand.truco.pending || hand.envido.pending)
     throw new Error('Hay un canto pendiente de respuesta');
@@ -139,9 +139,10 @@ export function playCard(hand: HandState, seat: Seat, cardId: string): HandState
   const [card] = cards.splice(idx, 1);
 
   const trick = currentTrick(hand);
-  trick.plays.push({ seat, card: card! });
+  const faceDown = opts.faceDown === true;
+  trick.plays.push({ seat, card: card!, faceDown: faceDown || undefined });
   hand.played[seat]!.push(card!);
-  hand.log.push(`Juega ${seat}: ${card!.id}`);
+  hand.log.push(faceDown ? `Juega ${seat}: tapada` : `Juega ${seat}: ${card!.id}`);
 
   const seats = activeSeats(hand);
   if (trick.plays.length >= seats.length) {

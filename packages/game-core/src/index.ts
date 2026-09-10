@@ -5,3 +5,4 @@ export * from './envido.js';
 export * from './hand.js';
 export * from './match.js';
 export * from './bot.js';
+export * from './catalog.js';

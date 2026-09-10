@@ -133,7 +133,7 @@ describe('envido aceptacion y puntajes', () => {
 });
 
 describe('match: cambio de mano y puntaje', () => {
-  test('alterna mano y suma puntos hasta 15', () => {
+  test('sortea la mano con el rng y suma puntos hasta 15', () => {
     const m = new Match({
       targetScore: 15,
       players: [
@@ -141,14 +141,14 @@ describe('match: cambio de mano y puntaje', () => {
         { id: 'b', name: 'B', seat: 1, team: 'B', connected: true },
       ],
     });
-    const h1 = m.startNextHand();
+    const h1 = m.startNextHand(() => 0);
     expect(h1.manoSeat).toBe(0);
     // cerrar a mano: forzar ganador
     h1.finished = true; h1.winnerSeat = 0; h1.winnerTeam = 'A'; h1.pointsAtStakeTruco = 1;
     (h1 as any).__trucoApplied = false;
     m.applyClosedHand();
     expect(m.state.scores.A).toBe(1);
-    const h2 = m.startNextHand();
+    const h2 = m.startNextHand(() => 0.99);
     expect(h2.manoSeat).toBe(1);
   });
 });

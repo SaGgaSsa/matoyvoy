@@ -71,8 +71,8 @@ export function emitRoomState(io: Server, room: ServerRoom): void {
       log: matchLog,
     });
   }
-  // Hook del bot (hoy no-op: la logica llega despues).
-  maybeBotMove(io, room);
+  // Hook del bot: ejecuta la movida pendiente (si hay) con demora humana.
+  maybeBotMove(io, room, (r) => emitRoomState(io, r));
 }
 
 function emitError(io: Server, socketId: string, message: string): void {
@@ -162,7 +162,9 @@ export function registerSocketHandlers(io: Server): void {
       if (!room) return emitError(io, socket.id, 'Sala no encontrada');
       if (room.hostId !== mem.id) return emitError(io, socket.id, 'Solo el host puede iniciar');
       try {
-        startMatch(room, payload?.targetScore);
+        // En salas vs bot el match arranca sin repartir: el humano reparte cada mano.
+        const hasBot = room.players.some((p) => p.isBot);
+        startMatch(room, payload?.targetScore, { deal: !hasBot });
         emitRoomState(io, room);
       } catch (e: any) {
         emitError(io, socket.id, e?.message ?? 'No se pudo iniciar');
@@ -188,12 +190,12 @@ export function registerSocketHandlers(io: Server): void {
       }
     };
 
-    socket.on('playCard', (payload: { cardId: string }) => {
+    socket.on('playCard', (payload: { cardId: string; faceDown?: boolean }) => {
       withPlayer((room, seat) => {
         const match = ensurePlaying(room);
         const hand = match.state.currentHand;
         if (!hand) throw new Error('No hay mano en curso');
-        corePlayCard(hand, seat, String(payload?.cardId));
+        corePlayCard(hand, seat, String(payload?.cardId), { faceDown: Boolean(payload?.faceDown) });
         if (hand.finished) {
           match.applyClosedHand();
         }
@@ -236,6 +238,25 @@ export function registerSocketHandlers(io: Server): void {
         coreRespondEnvido(hand, seat, Boolean(payload?.quiero), maxScore(match.state.scores), match.state.config.targetScore);
         match.applyEnvidoPoints();
       });
+    });
+
+    socket.on('dealHand', () => {
+      const mem = socketMembership.get(socket.id);
+      if (!mem) return emitError(io, socket.id, 'No estas en una sala');
+      const room = getRoom(mem.code);
+      if (!room || !room.match) return emitError(io, socket.id, 'No hay partida');
+      if (room.hostId !== mem.id) return emitError(io, socket.id, 'Solo el host puede repartir');
+      if (!room.botDifficulty) return emitError(io, socket.id, 'El reparto manual es solo en modo maquina');
+      try {
+        const hand = room.match.state.currentHand;
+        if (room.match.state.finished) throw new Error('La partida ya termino');
+        if (hand && !hand.finished) throw new Error('Termina la mano actual primero');
+        room.match.startNextHand();
+        room.status = 'playing';
+        emitRoomState(io, room);
+      } catch (e: any) {
+        emitError(io, socket.id, e?.message ?? 'No se pudo repartir');
+      }
     });
 
     socket.on('nextHand', () => {

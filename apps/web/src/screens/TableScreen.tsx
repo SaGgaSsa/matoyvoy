@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { handEnvidoPoints } from '@matoyvoy/game-core';
 import { getSocket, clearCredentials } from '../socket';
 import type { RoomStatePayload, Seat } from '../gameTypes';
@@ -20,6 +20,8 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
   const { room, match, hand, mySeat, myRole, isHost, log } = state;
   const socket = getSocket();
   const isSpectator = myRole === 'spectator';
+  const isBotRoom = Boolean(room.botDifficulty);
+  const [tapada, setTapada] = useState(false);
   const myTurn = Boolean(hand && hand.turnSeat === mySeat && !hand.finished);
 
   const trucoPendingForMe = Boolean(hand?.truco.pending && hand.truco.pendingTo === mySeat);
@@ -51,6 +53,11 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
     socket.emit('leaveRoom');
     clearCredentials();
     window.location.reload();
+  };
+
+  const play = (cardId: string): void => {
+    socket.emit('playCard', { cardId, faceDown: tapada });
+    setTapada(false);
   };
 
   const seatTag = (
@@ -124,6 +131,22 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
         </div>
 
         <div>
+          {match && !hand && !match.finished && (
+            <div className="panel brass" style={{ textAlign: 'center', padding: '28px 16px' }}>
+              <h3>🃏 Cartas en espera</h3>
+              <div className="row" style={{ justifyContent: 'center', margin: '12px 0' }}>
+                <CardBack /><CardBack /><CardBack />
+              </div>
+              {isSpectator || !isHost ? (
+                <p className="muted">Esperando que el host reparta la mano…</p>
+              ) : (
+                <>
+                  <p className="muted">La máquina ya está lista. Repartí cuando quieras.</p>
+                  <button className="btn btn-brass" onClick={() => socket.emit('dealHand')}>🃏 Repartir mano</button>
+                </>
+              )}
+            </div>
+          )}
           {hand && (
             <>
               <div className="row" style={{ marginBottom: 6 }}>
@@ -156,8 +179,8 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
                       <div className="row" style={{ justifyContent: 'center' }}>
                         {t.plays.map((p, i) => (
                           <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <CardView card={p.card} small />
-                            <small className="muted">{playerName(room, p.seat)}</small>
+                            {p.faceDown ? <CardBack /> : <CardView card={p.card} small />}
+                            <small className="muted">{playerName(room, p.seat)}{p.faceDown ? ' (tapada)' : ''}</small>
                           </div>
                         ))}
                         {t.plays.length === 0 && <CardBack />}
@@ -169,10 +192,16 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
 
               {!isSpectator && (
                 <div style={{ marginTop: 10 }}>
-                  <h4 style={{ marginBottom: 6 }}>Tus cartas {mySeat !== null && `(asiento ${mySeat})`}</h4>
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <h4 style={{ marginBottom: 6 }}>Tus cartas {mySeat !== null && `(asiento ${mySeat})`}</h4>
+                    <label className="check" title="La próxima carta sale boca abajo: pierde contra todo, solo empata con otra tapada">
+                      <input type="checkbox" checked={tapada} onChange={(e) => setTapada(e.target.checked)} disabled={!myTurn} />
+                      Jugar tapada
+                    </label>
+                  </div>
                   <div className="row">
                     {(hand.myCards ?? []).map((c) => (
-                      <CardView key={c.id} card={c} playable={myTurn} onPlay={() => socket.emit('playCard', { cardId: c.id })} />
+                      <CardView key={c.id} card={c} playable={myTurn} onPlay={() => play(c.id)} />
                     ))}
                     {(hand.myCards ?? []).length === 0 && <span className="muted">Sin cartas en mano.</span>}
                   </div>
@@ -209,7 +238,9 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
                   </>
                 )}
                 {hand.finished && !match?.finished && (
-                  <button className="btn btn-green btn-sm" onClick={() => socket.emit('nextHand')}>Siguiente mano →</button>
+                  isBotRoom
+                    ? <button className="btn btn-green btn-sm" onClick={() => socket.emit('dealHand')}>🃏 Repartir mano →</button>
+                    : <button className="btn btn-green btn-sm" onClick={() => socket.emit('nextHand')}>Siguiente mano →</button>
                 )}
                 {isSpectator && <span className="muted">Los espectadores no pueden cantar ni jugar.</span>}
               </div>
