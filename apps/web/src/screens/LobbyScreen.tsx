@@ -39,6 +39,7 @@ export function LobbyScreen({ state }: { state: RoomStatePayload }): React.React
               Código <strong style={{ color: 'var(--secondary)', fontSize: '1.2em', letterSpacing: '2px' }}>{room.code}</strong>
               {' '}· a {room.targetScore} puntos · {myRole === 'spectator' ? 'entrás como espectador' : 'entrás como jugador'}
               {isHost ? ' · sos el host' : ''}
+              {room.botDifficulty ? ` · rival máquina (nivel ${room.botDifficulty}, al azar)` : ''}
             </p>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={copyCode}>{copied ? '✓ ¡Copiado!' : '⧉ Copiar código'}</button>
@@ -52,6 +53,7 @@ export function LobbyScreen({ state }: { state: RoomStatePayload }): React.React
                 {p.name.slice(0, 2).toUpperCase()}
               </span>
               {p.name} — asiento {p.seat} / equipo {p.team} — {p.connected ? 'conectado' : 'desconectado'}
+              {p.isBot ? ' 🤖 (máquina)' : ''}
               {room.hostId === p.id ? ' (host)' : ''}
             </li>
           ))}

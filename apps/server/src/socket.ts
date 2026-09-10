@@ -1,5 +1,5 @@
 import type { Server } from 'socket.io';
-import type { Seat } from '@matoyvoy/game-core';
+import type { BotDifficulty, Seat } from '@matoyvoy/game-core';
 import {
   playCard as corePlayCard,
   singTruco as coreSingTruco,
@@ -22,6 +22,7 @@ import {
   socketMembership,
 } from './rooms.js';
 import { publicRoomView, publicMatchView, publicHandView, privateHandView } from './views.js';
+import { maybeBotMove } from './bot.js';
 import type { ServerRoom } from './views.js';
 
 function seatOf(room: ServerRoom, playerId: string): Seat | null {
@@ -70,6 +71,8 @@ export function emitRoomState(io: Server, room: ServerRoom): void {
       log: matchLog,
     });
   }
+  // Hook del bot (hoy no-op: la logica llega despues).
+  maybeBotMove(io, room);
 }
 
 function emitError(io: Server, socketId: string, message: string): void {
@@ -80,12 +83,14 @@ export function registerSocketHandlers(io: Server): void {
   io.on('connection', (socket) => {
     socket.emit('connected', { socketId: socket.id });
 
-    socket.on('createRoom', (payload: { playerName: string; targetScore?: number; roomName?: string }, ack?: (res: any) => void) => {
+    socket.on('createRoom', (payload: { playerName: string; targetScore?: number; roomName?: string; vsBot?: boolean; difficulty?: BotDifficulty }, ack?: (res: any) => void) => {
       try {
         const name = String(payload?.playerName ?? '').trim() || 'Jugador';
         const target = Number(payload?.targetScore) || 15;
         const roomName = String(payload?.roomName ?? '').trim();
-        const { room, player } = createRoom(name, target, roomName);
+        const vsBot = Boolean(payload?.vsBot);
+        const difficulty = typeof payload?.difficulty === 'string' ? (payload.difficulty as BotDifficulty) : undefined;
+        const { room, player } = createRoom(name, target, roomName, { vsBot, difficulty });
         attachSocket(room, 'player', player.id, socket.id);
         socket.join(room.code);
         const res = { code: room.code, playerId: player.id, token: player.token };

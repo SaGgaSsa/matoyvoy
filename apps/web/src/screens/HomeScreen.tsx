@@ -9,6 +9,7 @@ export function HomeScreen({ onError }: { onError: (m: string) => void }): React
   const [showModal, setShowModal] = useState(false);
   const [roomName, setRoomName] = useState('Mesa Porteña de los Viernes');
   const [targetScore, setTargetScore] = useState(15);
+  const [offlineTarget, setOfflineTarget] = useState(15);
   const [busy, setBusy] = useState(false);
   const [liveRooms, setLiveRooms] = useState<number | null>(null);
 
@@ -27,6 +28,20 @@ export function HomeScreen({ onError }: { onError: (m: string) => void }): React
     getSocket().emit(
       'createRoom',
       { playerName: name.trim(), targetScore, roomName: roomName.trim() },
+      (res: any) => {
+        setBusy(false);
+        if (!res?.ok) return onError(res?.message ?? 'No se pudo crear');
+        saveCredentials({ code: res.code, playerId: res.playerId, token: res.token });
+      },
+    );
+  };
+
+  const createVsBot = (): void => {
+    if (!name.trim()) return onError('Elegí tu nombre primero');
+    setBusy(true);
+    getSocket().emit(
+      'createRoom',
+      { playerName: name.trim(), targetScore: offlineTarget, roomName: 'Práctica vs Máquina', vsBot: true },
       (res: any) => {
         setBusy(false);
         if (!res?.ok) return onError(res?.message ?? 'No se pudo crear');
@@ -84,6 +99,21 @@ export function HomeScreen({ onError }: { onError: (m: string) => void }): React
             Entrar como espectador
           </label>
           <button className="btn btn-green" onClick={join} disabled={busy}>Entrar</button>
+        </div>
+      </div>
+
+      <div className="card-opt" style={{ marginTop: 12 }}>
+        <h3>🤖 Practicar offline — 1 vs La Máquina</h3>
+        <p className="muted" style={{ margin: 0 }}>La misma mesa de siempre, pero tu rival es la máquina. El nivel se sortea al azar (fácil / medio / difícil).</p>
+        <div className="row" style={{ marginTop: 8 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Límite de puntos</label>
+            <div className="toggle-row">
+              <button className={`toggle ${offlineTarget === 30 ? 'active-brass' : ''}`} onClick={() => setOfflineTarget(30)}>30 (Largo)</button>
+              <button className={`toggle ${offlineTarget === 15 ? 'active-brass' : ''}`} onClick={() => setOfflineTarget(15)}>15 (Corto)</button>
+            </div>
+          </div>
+          <button className="btn btn-brass" onClick={createVsBot} disabled={busy}>▶ Jugar vs máquina</button>
         </div>
       </div>
 

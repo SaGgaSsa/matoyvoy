@@ -6,7 +6,8 @@ export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 10 | 11 | 12;
 export interface Card { id: string; rank: Rank; suit: Suit }
 export type Seat = 0 | 1 | 2 | 3;
 export type Team = 'A' | 'B';
-export interface Player { id: string; name: string; seat: Seat; team: Team; connected: boolean }
+export interface Player { id: string; name: string; seat: Seat; team: Team; connected: boolean; isBot: boolean }
+export type BotDifficulty = 'facil' | 'medio' | 'dificil';
 export interface Room {
   code: string;
   name: string;
@@ -15,6 +16,7 @@ export interface Room {
   spectators: { id: string; name: string }[];
   status: 'lobby' | 'playing' | 'finished';
   targetScore: number;
+  botDifficulty: BotDifficulty | null;
 }
 export interface PublicMatchView {
   scores: Record<Team, number>;

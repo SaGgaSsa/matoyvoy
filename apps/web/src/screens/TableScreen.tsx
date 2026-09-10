@@ -59,13 +59,14 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
     sub: string,
     pos: 'top' | 'left' | 'right',
     roleBadge?: string,
+    isBot?: boolean,
   ): React.ReactElement => {
     const count = hand?.handCounts[seat] ?? 0;
     return (
       <div className={`seat-tag ${pos}`}>
-        <span className="avatar">{initials(name)}</span>
+        <span className="avatar">{isBot ? '🤖' : initials(name)}</span>
         <span>
-          <strong>{name}</strong>
+          <strong>{name}{isBot ? ' 🤖' : ''}</strong>
           <br />
           <small className="muted">{sub}</small>
         </span>
@@ -139,9 +140,9 @@ export function TableScreen({ state }: { state: RoomStatePayload }): React.React
               </div>
 
               <div className="felt">
-                {top && seatTag(top.seat, top.name, top.seat === hand.manoSeat ? 'Mano' : `Rival · ${hand.handCounts[top.seat] ?? 0} cartas`, 'top', top.seat === hand.manoSeat ? 'MANO' : undefined)}
-                {left && seatTag(left.seat, left.name, 'Rival', 'left')}
-                {right && seatTag(right.seat, right.name, 'Rival', 'right')}
+                {top && seatTag(top.seat, top.name, top.seat === hand.manoSeat ? 'Mano' : `Rival · ${hand.handCounts[top.seat] ?? 0} cartas`, 'top', top.seat === hand.manoSeat ? 'MANO' : undefined, top.isBot)}
+                {left && seatTag(left.seat, left.name, 'Rival', 'left', undefined, left.isBot)}
+                {right && seatTag(right.seat, right.name, 'Rival', 'right', undefined, right.isBot)}
 
                 <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 460 }}>
                   {hand.tricks.map((t) => (

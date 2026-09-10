@@ -22,7 +22,11 @@ export interface Player {
   seat: Seat;
   team: Team;
   connected: boolean;
+  /** Jugador controlado por la maquina (rival offline). Sin logica todavia. */
+  isBot?: boolean;
 }
+
+export type BotDifficulty = 'facil' | 'medio' | 'dificil';
 
 export type TrucoLevel = 'none' | 'truco' | 'retruco' | 'vale_cuatro';
 export type EnvidoLevel = 'none' | 'envido' | 'real_envido' | 'falta_envido';
@@ -114,6 +118,8 @@ export interface Room {
   spectators: Spectator[];
   status: RoomStatus;
   targetScore: number;
+  /** Nivel del bot si la sala es vs maquina; null en salas entre humanos. */
+  botDifficulty: BotDifficulty | null;
 }
 
 // Vista publica (para espectadores y rivales): sin cartas privadas ajenas

@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
-import type { Player, Seat, Team } from '@matoyvoy/game-core';
-import { Match, teamOfSeat } from '@matoyvoy/game-core';
+import type { BotDifficulty, Player, Seat, Team } from '@matoyvoy/game-core';
+import { BOT_DIFFICULTIES, Match, randomBotDifficulty, teamOfSeat } from '@matoyvoy/game-core';
 import type { ServerRoom, ServerPlayer, ServerSpectator } from './views.js';
 
 const rooms = new Map<string, ServerRoom>();
@@ -25,7 +25,17 @@ export function listRooms(): number {
   return rooms.size;
 }
 
-export function createRoom(playerName: string, targetScore = 15, roomName = ''): { room: ServerRoom; player: ServerPlayer } {
+export interface CreateRoomOpts {
+  vsBot?: boolean;
+  difficulty?: BotDifficulty;
+}
+
+export function createRoom(
+  playerName: string,
+  targetScore = 15,
+  roomName = '',
+  opts: CreateRoomOpts = {},
+): { room: ServerRoom; player: ServerPlayer } {
   const code = generateCode();
   const player: ServerPlayer = {
     id: uuid(),
@@ -36,16 +46,35 @@ export function createRoom(playerName: string, targetScore = 15, roomName = ''):
     token: uuid(),
     socketId: null,
   };
+  const players = [player];
+  let botDifficulty: BotDifficulty | null = null;
+  if (opts.vsBot) {
+    const d = opts.difficulty && (BOT_DIFFICULTIES as readonly string[]).includes(opts.difficulty)
+      ? opts.difficulty
+      : randomBotDifficulty();
+    botDifficulty = d;
+    players.push({
+      id: uuid(),
+      name: 'La Máquina',
+      seat: 1,
+      team: 'B',
+      connected: true,
+      isBot: true,
+      token: uuid(),
+      socketId: null,
+    });
+  }
   const room: ServerRoom = {
     code,
-    name: roomName.slice(0, 40) || `Mesa ${code}`,
+    name: roomName.slice(0, 40) || (opts.vsBot ? 'Práctica vs Máquina' : `Mesa ${code}`),
     hostId: player.id,
-    players: [player],
+    players,
     spectators: [],
     status: 'lobby',
     targetScore,
     match: null,
     createdAt: Date.now(),
+    botDifficulty,
   };
   rooms.set(code, room);
   return { room, player };
@@ -55,6 +84,7 @@ export function joinAsPlayer(code: string, playerName: string): { room: ServerRo
   const room = getRoom(code);
   if (!room) throw new Error('Sala no encontrada');
   if (room.status !== 'lobby') throw new Error('La partida ya empezo (entra como espectador)');
+  if (room.players.some((p) => p.isBot)) throw new Error('Sala vs máquina: no admite segundo jugador');
   if (room.players.length >= 2) throw new Error('Sala llena (MVP 1v1). Entra como espectador.');
   // Asientos MVP: 0 y 1. Modelo preparado para 0..3 (0,2 = A / 1,3 = B).
   const usedSeats = new Set(room.players.map((p) => p.seat));

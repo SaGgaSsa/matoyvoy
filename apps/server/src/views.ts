@@ -1,4 +1,5 @@
 import type {
+  BotDifficulty,
   HandState,
   Player,
   PrivateHandView,
@@ -30,6 +31,7 @@ export interface ServerRoom {
   targetScore: number;
   match: Match | null;
   createdAt: number;
+  botDifficulty: BotDifficulty | null;
 }
 
 export function publicRoomView(room: ServerRoom): Room {
@@ -43,10 +45,12 @@ export function publicRoomView(room: ServerRoom): Room {
       seat: p.seat,
       team: p.team,
       connected: p.connected,
+      isBot: p.isBot ?? false,
     })),
     spectators: room.spectators.map((s) => ({ id: s.id, name: s.name })),
     status: room.status,
     targetScore: room.targetScore,
+    botDifficulty: room.botDifficulty,
   };
 }
 
