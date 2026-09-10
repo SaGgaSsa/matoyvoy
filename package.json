@@ -1,0 +1,18 @@
+{
+  "name": "matoyvoy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Matoyvoy - Truco Argentino online (MVP: base de Truco 1v1 en salas privadas)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/server & npm run dev --workspace=apps/web",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=packages/game-core && npm run build --workspace=apps/server && npm run build --workspace=apps/web",
+    "test": "npm run test --workspace=packages/game-core",
+    "start": "npm run start --workspace=apps/server"
+  }
+}
