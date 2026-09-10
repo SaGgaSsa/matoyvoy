@@ -25,7 +25,7 @@ export function listRooms(): number {
   return rooms.size;
 }
 
-export function createRoom(playerName: string, targetScore = 15): { room: ServerRoom; player: ServerPlayer } {
+export function createRoom(playerName: string, targetScore = 15, roomName = ''): { room: ServerRoom; player: ServerPlayer } {
   const code = generateCode();
   const player: ServerPlayer = {
     id: uuid(),
@@ -38,6 +38,7 @@ export function createRoom(playerName: string, targetScore = 15): { room: Server
   };
   const room: ServerRoom = {
     code,
+    name: roomName.slice(0, 40) || `Mesa ${code}`,
     hostId: player.id,
     players: [player],
     spectators: [],

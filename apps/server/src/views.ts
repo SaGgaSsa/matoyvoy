@@ -22,6 +22,7 @@ export interface ServerSpectator extends Spectator {
 
 export interface ServerRoom {
   code: string;
+  name: string;
   hostId: string;
   players: ServerPlayer[];
   spectators: ServerSpectator[];
@@ -34,6 +35,7 @@ export interface ServerRoom {
 export function publicRoomView(room: ServerRoom): Room {
   return {
     code: room.code,
+    name: room.name,
     hostId: room.hostId,
     players: room.players.map((p) => ({
       id: p.id,

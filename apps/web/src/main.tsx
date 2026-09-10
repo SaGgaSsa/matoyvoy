@@ -51,6 +51,7 @@ function App(): React.ReactElement {
 
   return (
     <div className="app">
+      <div className="ambient" />
       {error && (
         <div className="error" onClick={() => setError(null)}>
           {error} (toca para cerrar)

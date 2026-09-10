@@ -9,6 +9,7 @@ export type Team = 'A' | 'B';
 export interface Player { id: string; name: string; seat: Seat; team: Team; connected: boolean }
 export interface Room {
   code: string;
+  name: string;
   hostId: string;
   players: Player[];
   spectators: { id: string; name: string }[];

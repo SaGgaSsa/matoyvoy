@@ -108,6 +108,7 @@ export interface Spectator {
 
 export interface Room {
   code: string;
+  name: string;
   hostId: string;
   players: Player[];
   spectators: Spectator[];

@@ -80,11 +80,12 @@ export function registerSocketHandlers(io: Server): void {
   io.on('connection', (socket) => {
     socket.emit('connected', { socketId: socket.id });
 
-    socket.on('createRoom', (payload: { playerName: string; targetScore?: number }, ack?: (res: any) => void) => {
+    socket.on('createRoom', (payload: { playerName: string; targetScore?: number; roomName?: string }, ack?: (res: any) => void) => {
       try {
         const name = String(payload?.playerName ?? '').trim() || 'Jugador';
         const target = Number(payload?.targetScore) || 15;
-        const { room, player } = createRoom(name, target);
+        const roomName = String(payload?.roomName ?? '').trim();
+        const { room, player } = createRoom(name, target, roomName);
         attachSocket(room, 'player', player.id, socket.id);
         socket.join(room.code);
         const res = { code: room.code, playerId: player.id, token: player.token };
